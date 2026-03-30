@@ -5,9 +5,11 @@ langchain-community
 langchain-core
 langchain-openai
 langchain-experimental
+langchain-neo4j
 sentence-transformers
 pydantic
 python-dotenv
 django>=5.0
 djangorestframework
 django-cors-headers
+drf-spectacular

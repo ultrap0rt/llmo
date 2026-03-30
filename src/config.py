@@ -11,10 +11,18 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 # Qdrant Settings
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 
-# Ollama / LLM Settings
+# Ollama / LLM Settings (OpenAI-compatible API lives under .../v1)
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek-r1:1.5b")
 OLLAMA_EXTRACTOR_MODEL = os.getenv("OLLAMA_EXTRACTOR_MODEL", "qwen2.5:0.5b")
+
+
+def ollama_native_base_url() -> str:
+    """Ollama HTTP API root (health/tags), without /v1 suffix."""
+    base = OLLAMA_BASE_URL.rstrip("/")
+    if base.endswith("/v1"):
+        return base[:-3]
+    return base
 
 # Embedding Model
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")

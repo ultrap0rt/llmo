@@ -2,8 +2,15 @@ import threading
 from rest_framework import views, status
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
+
 from .models import ChatSession, Message
-from .serializers import ChatSessionSerializer, MessageSerializer
+from .serializers import (
+    ChatSessionSerializer,
+    SessionCreateRequestSerializer,
+    ChatMessageRequestSerializer,
+    ChatMessageResponseSerializer,
+)
 
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
@@ -12,6 +19,8 @@ from src.config import OLLAMA_BASE_URL, OLLAMA_MODEL
 from src.memory.vector_store import vector_store
 from src.rag.graph_retriever import retrieve_graph_context
 from src.kg.extractor import extract_and_store_knowledge
+from src.ollama_health import ollama_is_reachable
+from src.local_llm import generate_local_answer
 
 main_llm = ChatOpenAI(
     api_key="ollama", 
@@ -41,6 +50,8 @@ Answer:
 )
 
 chain = prompt_template | main_llm
+_llm_unavailable_logged = False
+
 
 def background_extraction_task(session_id_str, user_msg, assistant_msg):
     """
@@ -57,20 +68,30 @@ def background_extraction_task(session_id_str, user_msg, assistant_msg):
     except Exception as e:
         print(f"Error in background extraction task: {e}")
 
+@extend_schema(
+    request=SessionCreateRequestSerializer,
+    responses={201: ChatSessionSerializer},
+)
 class SessionCreateView(views.APIView):
     def post(self, request):
         session = ChatSession.objects.create(title=request.data.get('title', 'New Chat'))
         serializer = ChatSessionSerializer(session)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+@extend_schema(responses={200: ChatSessionSerializer})
 class SessionDetailView(views.APIView):
     def get(self, request, session_id):
         session = get_object_or_404(ChatSession, session_id=session_id)
         serializer = ChatSessionSerializer(session)
         return Response(serializer.data)
 
+@extend_schema(
+    request=ChatMessageRequestSerializer,
+    responses={200: ChatMessageResponseSerializer},
+)
 class ChatMessageView(views.APIView):
     def post(self, request, session_id):
+        global _llm_unavailable_logged
         session = get_object_or_404(ChatSession, session_id=session_id)
         user_message_text = request.data.get('message')
         if not user_message_text:
@@ -102,17 +123,29 @@ class ChatMessageView(views.APIView):
         )
 
         # 4. Генерируем ответ
-        try:
-            response_llm = chain.invoke({
-                "history": history_text,
-                "graph_context": graph_context_text,
-                "message": user_message_text
-            })
-            answer_text = response_llm.content
-        except Exception as e:
-            # If Ollama/LLM is not available, keep the API responsive.
-            print(f"[chat] LLM invocation failed: {e}")
-            answer_text = "LLM unavailable right now (Ollama/LLM service not reachable). Please try again later."
+        if not ollama_is_reachable():
+            answer_text = generate_local_answer(
+                history=history_text,
+                graph_context=graph_context_text,
+                message=user_message_text,
+            )
+        else:
+            try:
+                response_llm = chain.invoke({
+                    "history": history_text,
+                    "graph_context": graph_context_text,
+                    "message": user_message_text
+                })
+                answer_text = response_llm.content
+            except Exception as e:
+                if not _llm_unavailable_logged:
+                    print(f"[chat] LLM invocation failed: {e}")
+                    _llm_unavailable_logged = True
+                answer_text = generate_local_answer(
+                    history=history_text,
+                    graph_context=graph_context_text,
+                    message=user_message_text,
+                )
 
         # 5. Сохраняем ответ ассистента в SQL
         assistant_msg_obj = Message.objects.create(

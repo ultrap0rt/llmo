@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'drf_spectacular',
     'corsheaders',
     'chat',
 ]
@@ -54,6 +55,16 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True  # For dev purposes only
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'AI Knowledge Graph API',
+    'DESCRIPTION': 'API for chat sessions, messaging, and AI memory features.',
+    'VERSION': '1.0.0',
+}
 
 
 ROOT_URLCONF = 'backend.urls'

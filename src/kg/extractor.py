@@ -1,13 +1,14 @@
 import os
 import asyncio
 from langchain_openai import ChatOpenAI
-from langchain_community.graphs import Neo4jGraph
+from langchain_neo4j import Neo4jGraph
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_core.documents import Document
 from src.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, OLLAMA_BASE_URL, OLLAMA_EXTRACTOR_MODEL
 
 graph = None
 llm_transformer = None
+_skip_notice_printed = False
 
 # Important: allow the app to start even if Neo4j/Ollama are not running yet.
 try:
@@ -34,8 +35,11 @@ def extract_and_store_knowledge(text: str):
     """
     Extract entities and relationships from the text and store them in Neo4j.
     """
+    global _skip_notice_printed
     if not graph or not llm_transformer:
-        print("[kg.extractor] Skipping extraction: Neo4j/LLM not initialized.")
+        if not _skip_notice_printed:
+            print("[kg.extractor] Skipping extraction: Neo4j/LLM not initialized.")
+            _skip_notice_printed = True
         return False
 
     try:

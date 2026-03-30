@@ -1,6 +1,21 @@
 from rest_framework import serializers
 from .models import UserProfile, ChatSession, Message
 
+
+class SessionCreateRequestSerializer(serializers.Serializer):
+    title = serializers.CharField(required=False, default="New Chat")
+
+
+class ChatMessageRequestSerializer(serializers.Serializer):
+    message = serializers.CharField()
+
+
+class ChatMessageResponseSerializer(serializers.Serializer):
+    response = serializers.CharField()
+    message_id = serializers.UUIDField()
+    timestamp = serializers.DateTimeField()
+
+
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message

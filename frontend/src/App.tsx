@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Home } from './components/Home';
 import { Chat } from './components/Chat';
+import { SwaggerPage } from './components/SwaggerPage';
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/chat/:sessionId" element={<Chat />} />
+          <Route path="/swagger" element={<SwaggerPage />} />
         </Routes>
       </div>
     </Router>
